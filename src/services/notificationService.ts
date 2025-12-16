@@ -1,0 +1,197 @@
+// Expo Notification Service
+// For Expo, we'll use a different approach since react-native-android-notification-listener
+// requires native code that's not available in Expo Go.
+// You'll need to use EAS Build (Development Build) to use full notification listener.
+
+import { Alert } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { 
+  BankNotification, 
+  ParsedTransaction,
+  BANKS 
+} from '../types';
+import { 
+  isBankingNotification, 
+  parseNotification, 
+  getCategoryFromTransaction 
+} from '../utils/notificationParser';
+import { useTransactionStore } from '../store/transactionStore';
+import { useSettingsStore } from '../store/settingsStore';
+
+export type NotificationPermissionStatus = 'authorized' | 'denied' | 'unknown';
+
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+/**
+ * Check if notification permission is granted
+ */
+export const checkNotificationPermission = async (): Promise<NotificationPermissionStatus> => {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status === 'granted') {
+      return 'authorized';
+    } else if (status === 'denied') {
+      return 'denied';
+    }
+    return 'unknown';
+  } catch (error) {
+    console.error('Error checking notification permission:', error);
+    return 'unknown';
+  }
+};
+
+/**
+ * Request notification permission
+ */
+export const requestNotificationPermission = async (): Promise<NotificationPermissionStatus> => {
+  try {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status === 'granted') {
+      return 'authorized';
+    } else if (status === 'denied') {
+      Alert.alert(
+        'Quyền bị từ chối',
+        'Để sử dụng tính năng đọc thông báo ngân hàng, vui lòng cấp quyền trong Cài đặt thiết bị.'
+      );
+      return 'denied';
+    }
+    return 'unknown';
+  } catch (error) {
+    console.error('Error requesting notification permission:', error);
+    return 'unknown';
+  }
+};
+
+/**
+ * Process incoming notification
+ */
+export const processNotification = async (notification: BankNotification): Promise<ParsedTransaction | null> => {
+  console.log('[CashTrack] Received notification:', {
+    app: notification.app,
+    title: notification.title,
+    text: notification.text?.substring(0, 100),
+  });
+  
+  // Check if it's a banking notification
+  if (!isBankingNotification(notification)) {
+    console.log('[CashTrack] Not a banking notification, skipping');
+    return null;
+  }
+  
+  // Check if this app is in selected bank apps
+  const settings = useSettingsStore.getState();
+  if (settings.selectedBankApps.length > 0 && !settings.selectedBankApps.includes(notification.app)) {
+    console.log('[CashTrack] App not in selected banks, skipping');
+    return null;
+  }
+  
+  // Parse the notification
+  const parsed = parseNotification(notification);
+  if (!parsed) {
+    console.log('[CashTrack] Failed to parse notification');
+    return null;
+  }
+  
+  console.log('[CashTrack] Parsed transaction:', parsed);
+  
+  // Get category
+  const category = getCategoryFromTransaction(parsed);
+  
+  // Add to store
+  const store = useTransactionStore.getState();
+  store.addTransaction({
+    amount: parsed.amount,
+    type: parsed.type,
+    category,
+    description: parsed.description || '',
+    merchant: parsed.merchant,
+    bankAccount: parsed.bankCode,
+    source: 'notification',
+    rawNotification: parsed.rawText,
+  });
+  
+  console.log('[CashTrack] Transaction added successfully');
+  
+  return parsed;
+};
+
+/**
+ * Register for push notifications
+ */
+export const registerForPushNotifications = async () => {
+  const status = await requestNotificationPermission();
+  
+  if (status !== 'authorized') {
+    return null;
+  }
+
+  // Get push token (for future cloud sync features)
+  // const token = await Notifications.getExpoPushTokenAsync();
+  // return token.data;
+  
+  return true;
+};
+
+/**
+ * Get list of supported banking apps
+ */
+export const getSupportedBanks = () => {
+  return BANKS.map(bank => ({
+    ...bank,
+    isInstalled: false, // Can't check in Expo Go
+  }));
+};
+
+/**
+ * Register notification handler - placeholder for Expo
+ * Full notification listener requires EAS Development Build
+ */
+export const registerNotificationHandler = () => {
+  console.log('[CashTrack] Notification handler registered (limited in Expo Go)');
+  console.log('[CashTrack] For full NotificationListener support, use EAS Development Build');
+};
+
+/**
+ * Test notification parsing with sample data
+ */
+export const testNotificationParsing = (sampleText: string): ParsedTransaction | null => {
+  const testNotification: BankNotification = {
+    app: 'com.mbmobile',
+    title: 'MB Bank',
+    text: sampleText,
+    time: Date.now(),
+  };
+  
+  return parseNotification(testNotification);
+};
+
+// Sample notifications for testing
+export const SAMPLE_NOTIFICATIONS = {
+  mbBankExpense: {
+    app: 'com.mbmobile',
+    title: 'MB Bank',
+    text: 'GD: -50,000 VND tai Circle K luc 14:30 23/12. SD: 5,000,000 VND. Chi tiet: mua hang.',
+    time: Date.now(),
+  },
+  vcbIncome: {
+    app: 'com.VCB',
+    title: 'Vietcombank',
+    text: 'So TK *1234 nhan +2,500,000 VND tu NGUYEN VAN A. ND: Chuyen tien. SD: 10,500,000 VND.',
+    time: Date.now(),
+  },
+  momoPayment: {
+    app: 'com.mservice.momotransfer',
+    title: 'MoMo',
+    text: 'Ban vua thanh toan 120,000 VND cho Grab tai Quan 1, HCM. So du vi: 500,000 VND.',
+    time: Date.now(),
+  },
+};
