@@ -61,7 +61,7 @@ interface GeminiResponse {
 
 class GeminiService {
   private apiKey: string | null = null;
-  private model: string = 'gemini-1.5-flash';
+  private model: string = 'gemini-flash-latest';
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
 
   configure(config: GeminiConfig) {
@@ -86,33 +86,40 @@ class GeminiService {
 
     const url = `${this.baseUrl}/${this.model}:generateContent?key=${this.apiKey}`;
     
+    console.log('[Gemini] Calling API with model:', this.model);
+    
     try {
+      const requestBody = {
+        contents: [{
+          role: 'user',
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        },
+      };
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Gemini API error: ${response.status} - ${error}`);
+        const errorText = await response.text();
+        console.error('[Gemini] API error:', response.status, errorText);
+        throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
       }
 
       const data: GeminiResponse = await response.json();
+      console.log('[Gemini] Response received:', data.candidates?.length, 'candidates');
       
       if (data.candidates && data.candidates.length > 0) {
         return data.candidates[0].content.parts[0].text;
@@ -120,10 +127,11 @@ class GeminiService {
       
       throw new Error('No response from Gemini');
     } catch (error) {
-      console.error('Gemini API call failed:', error);
+      console.error('[Gemini] API call failed:', error);
       throw error;
     }
   }
+
 
   private parseJsonResponse<T>(response: string): T {
     let cleanResponse = response
