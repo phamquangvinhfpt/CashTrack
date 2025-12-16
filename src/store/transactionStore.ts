@@ -4,7 +4,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Transaction, TransactionCategory, CATEGORIES } from '../types';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from '../utils/dateUtils';
-import { v4 as uuidv4 } from 'uuid';
 
 // Generate simple unique ID since uuid might not work in RN
 const generateId = (): string => {
@@ -75,28 +74,51 @@ export const useTransactionStore = create<TransactionState>()(
           transactions: [newTransaction, ...state.transactions],
         }));
         
+        // Trigger webhook asynchronously (fire and forget)
+        import('../services/webhookService').then(({ webhookService }) => {
+          webhookService.onTransactionCreated(newTransaction).catch(console.error);
+        });
+        
         return newTransaction;
       },
       
       updateTransaction: (id, updates) => {
-        set(state => ({
-          transactions: state.transactions.map(t =>
-            t.id === id
-              ? { ...t, ...updates, updatedAt: new Date() }
-              : t
-          ),
-        }));
+        let updatedTransaction: Transaction | undefined;
+        
+        set(state => {
+          const transactions = state.transactions.map(t => {
+            if (t.id === id) {
+              updatedTransaction = { ...t, ...updates, updatedAt: new Date() };
+              return updatedTransaction;
+            }
+            return t;
+          });
+          return { transactions };
+        });
+        
+        // Trigger webhook asynchronously
+        if (updatedTransaction) {
+          import('../services/webhookService').then(({ webhookService }) => {
+            webhookService.onTransactionUpdated(updatedTransaction!).catch(console.error);
+          });
+        }
       },
       
       deleteTransaction: (id) => {
         set(state => ({
           transactions: state.transactions.filter(t => t.id !== id),
         }));
+        
+        // Trigger webhook asynchronously
+        import('../services/webhookService').then(({ webhookService }) => {
+          webhookService.onTransactionDeleted(id).catch(console.error);
+        });
       },
       
       clearAllTransactions: () => {
         set({ transactions: [] });
       },
+
       
       getTransactionById: (id) => {
         return get().transactions.find(t => t.id === id);

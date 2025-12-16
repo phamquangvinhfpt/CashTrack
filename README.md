@@ -4,17 +4,44 @@
   <img src="./assets/icon.png" alt="CashTrack Logo" width="120">
 </p>
 
-CashTrack là ứng dụng React Native (Expo) giúp bạn tự động theo dõi chi tiêu thông qua việc đọc thông báo từ các ứng dụng ngân hàng Việt Nam.
+<p align="center">
+  <a href="./CHANGELOG.md">📋 Changelog</a> •
+  <a href="#-tính-năng-chính">Tính năng</a> •
+  <a href="#-quick-start">Cài đặt</a> •
+  <a href="#-đóng-góp">Đóng góp</a>
+</p>
+
+CashTrack là ứng dụng React Native (Expo) giúp bạn tự động theo dõi chi tiêu thông qua việc đọc thông báo từ các ứng dụng ngân hàng Việt Nam, tích hợp **AI phân loại thông minh** và **báo cáo tài chính tự động**.
 
 ## ✨ Tính năng chính
 
+### 📱 Core Features
 - 🔔 **Tự động đọc thông báo ngân hàng** - Hỗ trợ VCB, MB, TCB, ACB, BIDV, MoMo...
 - 📊 **Dashboard thông minh** - Biểu đồ chi tiêu, phân loại danh mục
 - 🌙 **Dark/Light mode** - Tự động theo hệ thống hoặc tùy chỉnh
 - 📱 **UI Premium** - Gradient, animations, design hiện đại
 - 💾 **Lưu trữ offline** - Dữ liệu lưu local với AsyncStorage
 
+### 🤖 AI & Automation (NEW!)
+- 🧠 **Gemini AI Integration** - Phân loại giao dịch thông minh bằng AI
+- 📈 **Báo cáo AI** - Insights, recommendations, saving tips tự động
+- 🔗 **Webhook Integration** - Gửi dữ liệu đến Discord, Slack, Telegram...
+- ⚡ **Auto-categorization** - AI tự động nhận diện merchant và phân loại
+
+### 📊 Statistics & Reports (NEW!)
+- 📅 **Bộ lọc thời gian** - 7 ngày, 30 ngày, theo tháng/năm
+- 🏷️ **Lọc theo danh mục** - Filter transactions theo category
+- 💰 **Ngân sách tùy chỉnh** - Đặt hạn mức chi tiêu hàng tháng
+- 📊 **Thu nhập breakdown** - Phân tích nguồn thu nhập
+
+### 🔗 Webhooks (NEW!)
+- 📤 Gửi dữ liệu realtime khi có giao dịch mới
+- ⚠️ Cảnh báo khi vượt ngân sách
+- 📋 Tổng kết ngày/tuần/tháng tự động
+- 🔐 HMAC signature cho bảo mật
+
 ---
+
 
 ## 🚀 Quick Start
 

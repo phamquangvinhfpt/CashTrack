@@ -2,11 +2,23 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { geminiService } from '../services/geminiService';
 
 interface Budget {
   category: string;
   limit: number;
   period: 'daily' | 'weekly' | 'monthly';
+}
+
+// Filter period type for stats and reports
+export type FilterPeriod = 'day' | 'week' | 'month' | 'year' | 'custom';
+
+interface DateFilter {
+  period: FilterPeriod;
+  startDate?: Date;
+  endDate?: Date;
+  selectedMonth?: number; // 0-11
+  selectedYear?: number;
 }
 
 interface SettingsState {
@@ -17,16 +29,28 @@ interface SettingsState {
   // Notification settings
   notificationEnabled: boolean;
   notificationPermission: 'authorized' | 'denied' | 'unknown';
-  selectedBankApps: string[]; // Package names of selected banking apps
+  selectedBankApps: string[];
   
   // Budget settings
   monthlyBudget: number;
+  isCustomBudget: boolean;
   categoryBudgets: Budget[];
-  budgetAlertThreshold: number; // Percentage (e.g., 80 means alert at 80%)
+  budgetAlertThreshold: number;
   
   // Display settings
   showCents: boolean;
   compactNumbers: boolean;
+  
+  // AI/Gemini settings
+  geminiApiKey: string;
+  useAICategorizaton: boolean;
+  useAIReports: boolean;
+  
+  // Webhook settings
+  webhooksEnabled: boolean;
+  
+  // Filter settings
+  currentFilter: DateFilter;
   
   // Actions
   setLanguage: (lang: 'vi' | 'en') => void;
@@ -41,7 +65,27 @@ interface SettingsState {
   setBudgetAlertThreshold: (threshold: number) => void;
   setShowCents: (show: boolean) => void;
   setCompactNumbers: (compact: boolean) => void;
+  
+  // AI settings actions
+  setGeminiApiKey: (key: string) => void;
+  setUseAICategorization: (enabled: boolean) => void;
+  setUseAIReports: (enabled: boolean) => void;
+  
+  // Webhook settings actions
+  setWebhooksEnabled: (enabled: boolean) => void;
+  
+  // Filter actions
+  setFilter: (filter: DateFilter) => void;
+  setFilterMonth: (month: number, year: number) => void;
+  setFilterYear: (year: number) => void;
+  resetFilter: () => void;
 }
+
+const getDefaultFilter = (): DateFilter => ({
+  period: 'month',
+  selectedMonth: new Date().getMonth(),
+  selectedYear: new Date().getFullYear(),
+});
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
@@ -52,11 +96,23 @@ export const useSettingsStore = create<SettingsState>()(
       notificationEnabled: false,
       notificationPermission: 'unknown',
       selectedBankApps: [],
-      monthlyBudget: 10000000, // 10 million VND
+      monthlyBudget: 10000000,
+      isCustomBudget: false,
       categoryBudgets: [],
       budgetAlertThreshold: 80,
       showCents: false,
       compactNumbers: true,
+      
+      // AI settings defaults
+      geminiApiKey: '',
+      useAICategorizaton: false,
+      useAIReports: false,
+      
+      // Webhook defaults
+      webhooksEnabled: false,
+      
+      // Filter defaults
+      currentFilter: getDefaultFilter(),
       
       // Actions
       setLanguage: (lang) => set({ language: lang }),
@@ -74,7 +130,10 @@ export const useSettingsStore = create<SettingsState>()(
         selectedBankApps: state.selectedBankApps.filter(p => p !== packageName),
       })),
       
-      setMonthlyBudget: (amount) => set({ monthlyBudget: amount }),
+      setMonthlyBudget: (amount) => set({ 
+        monthlyBudget: amount,
+        isCustomBudget: true,
+      }),
       
       setCategoryBudget: (budget) => set(state => {
         const existing = state.categoryBudgets.findIndex(b => b.category === budget.category);
@@ -93,10 +152,49 @@ export const useSettingsStore = create<SettingsState>()(
       setBudgetAlertThreshold: (threshold) => set({ budgetAlertThreshold: threshold }),
       setShowCents: (show) => set({ showCents: show }),
       setCompactNumbers: (compact) => set({ compactNumbers: compact }),
+      
+      // AI settings actions
+      setGeminiApiKey: (key) => {
+        if (key) {
+          geminiService.configure({ apiKey: key });
+        }
+        set({ geminiApiKey: key });
+      },
+      
+      setUseAICategorization: (enabled) => set({ useAICategorizaton: enabled }),
+      setUseAIReports: (enabled) => set({ useAIReports: enabled }),
+      
+      // Webhook settings actions
+      setWebhooksEnabled: (enabled) => set({ webhooksEnabled: enabled }),
+      
+      // Filter actions
+      setFilter: (filter) => set({ currentFilter: filter }),
+      
+      setFilterMonth: (month, year) => set({
+        currentFilter: {
+          period: 'month',
+          selectedMonth: month,
+          selectedYear: year,
+        },
+      }),
+      
+      setFilterYear: (year) => set({
+        currentFilter: {
+          period: 'year',
+          selectedYear: year,
+        },
+      }),
+      
+      resetFilter: () => set({ currentFilter: getDefaultFilter() }),
     }),
     {
       name: 'cashtrack-settings',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state?.geminiApiKey) {
+          geminiService.configure({ apiKey: state.geminiApiKey });
+        }
+      },
     }
   )
 );
