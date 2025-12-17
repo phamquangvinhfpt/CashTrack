@@ -289,11 +289,121 @@ class NotificationListener : NotificationListenerService() {
                     Log.d(TAG, "Webhook sent successfully to: $url")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to send webhook to $url: ${e.message}")
+                    // Queue failed webhook for retry
+                    queueWebhookForRetry(url, payload.toString(), secret)
                 }
             }
             
+            // Process any queued webhooks if we have internet
+            processWebhookQueue()
+            
         } catch (e: Exception) {
             Log.e(TAG, "Error sending webhooks: ${e.message}")
+        }
+    }
+    
+    /**
+     * Queue a failed webhook for later retry
+     */
+    private fun queueWebhookForRetry(url: String, payload: String, secret: String) {
+        try {
+            val queueFile = File(applicationContext.filesDir, "webhook_queue.json")
+            val queue = if (queueFile.exists()) {
+                try {
+                    JSONArray(queueFile.readText())
+                } catch (e: Exception) {
+                    JSONArray()
+                }
+            } else {
+                JSONArray()
+            }
+            
+            // Add to queue with timestamp and retry count
+            val queueItem = JSONObject().apply {
+                put("url", url)
+                put("payload", payload)
+                put("secret", secret)
+                put("timestamp", System.currentTimeMillis())
+                put("retryCount", 0)
+            }
+            
+            queue.put(queueItem)
+            
+            // Keep only last 50 queued webhooks
+            while (queue.length() > 50) {
+                queue.remove(0)
+            }
+            
+            queueFile.writeText(queue.toString())
+            Log.d(TAG, "Webhook queued for retry. Queue size: ${queue.length()}")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error queuing webhook: ${e.message}")
+        }
+    }
+    
+    /**
+     * Process queued webhooks (called when we have internet)
+     */
+    private fun processWebhookQueue() {
+        try {
+            val queueFile = File(applicationContext.filesDir, "webhook_queue.json")
+            if (!queueFile.exists()) return
+            
+            val queue = try {
+                JSONArray(queueFile.readText())
+            } catch (e: Exception) {
+                return
+            }
+            
+            if (queue.length() == 0) return
+            
+            Log.d(TAG, "Processing webhook queue: ${queue.length()} items")
+            
+            val remainingQueue = JSONArray()
+            
+            for (i in 0 until queue.length()) {
+                val item = queue.getJSONObject(i)
+                val url = item.getString("url")
+                val payload = item.getString("payload")
+                val secret = item.optString("secret", "")
+                val retryCount = item.optInt("retryCount", 0)
+                val timestamp = item.optLong("timestamp", 0)
+                
+                // Skip if too old (older than 24 hours)
+                if (System.currentTimeMillis() - timestamp > 24 * 60 * 60 * 1000) {
+                    Log.d(TAG, "Skipping expired webhook (older than 24h)")
+                    continue
+                }
+                
+                // Skip if too many retries
+                if (retryCount >= 5) {
+                    Log.d(TAG, "Skipping webhook with too many retries ($retryCount)")
+                    continue
+                }
+                
+                try {
+                    sendHttpWebhook(url, payload, secret)
+                    Log.d(TAG, "Queued webhook sent successfully to: $url")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Retry failed for $url: ${e.message}")
+                    // Re-queue with incremented retry count
+                    item.put("retryCount", retryCount + 1)
+                    remainingQueue.put(item)
+                }
+            }
+            
+            // Save remaining queue
+            if (remainingQueue.length() > 0) {
+                queueFile.writeText(remainingQueue.toString())
+                Log.d(TAG, "Remaining queued webhooks: ${remainingQueue.length()}")
+            } else {
+                queueFile.delete()
+                Log.d(TAG, "Webhook queue cleared")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing webhook queue: ${e.message}")
         }
     }
     
@@ -327,6 +437,11 @@ class NotificationListener : NotificationListenerService() {
             
             val responseCode = connection.responseCode
             Log.d(TAG, "Webhook response code: $responseCode")
+            
+            // Throw exception if not successful
+            if (responseCode !in 200..299) {
+                throw Exception("HTTP $responseCode")
+            }
             
         } finally {
             connection.disconnect()

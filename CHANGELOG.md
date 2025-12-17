@@ -11,11 +11,31 @@ và project này tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Added
 
+#### Smart Advertisement Filtering
+- **AI-Powered Detection**: Sử dụng Gemini AI để phân biệt thông báo giao dịch thực và quảng cáo
+- **Keyword-Based Filtering**: Bộ lọc từ khóa với 30+ từ khóa quảng cáo tiếng Việt (có/không dấu)
+- **Transaction Priority Keywords**: Từ khóa ưu tiên để nhận biết giao dịch thực sự
+- **Confidence Scoring**: AI trả về độ tin cậy, chỉ lọc khi >= 70%
+- **Fallback Logic**: Nếu AI không chắc chắn, tự động dùng rule-based detection
+
+
+#### Background Webhook Service
+- **Native Background Sending**: Gửi webhook trực tiếp từ Android NotificationListener service
+- **No App Required**: Webhook được gửi ngay cả khi app không mở
+- **New Event Type**: `notification.received` - event mới cho thông báo từ background
+- **Webhook Config Sync**: Tự động đồng bộ cấu hình webhook từ React Native sang native code
+- **Offline Queue**: Lưu webhook vào hàng đợi khi không có internet
+- **Auto Retry**: Tự động gửi lại webhook khi có kết nối (max 5 lần retry)
+- **Queue Expiration**: Webhook hết hạn sau 24 giờ, giữ tối đa 50 items
+
 #### Gemini AI Integration
 - **Smart Categorization**: Tích hợp Google Gemini AI để phân loại giao dịch thông minh
 - **AI Reports**: Báo cáo tài chính hàng tháng với insights, recommendations và saving tips
 - **Income Analysis**: Phân tích nguồn thu nhập tự động
 - **Gemini API Configuration**: UI để cấu hình API key trong Settings
+- **detectNotificationType()**: Hàm mới để phân loại thông báo là giao dịch hay quảng cáo
+- **Extracted Amount**: AI có thể trích xuất số tiền từ thông báo
+- **Transaction Type Detection**: AI xác định loại giao dịch (income/expense)
 
 #### Webhook System
 - **Webhook Service**: Gửi dữ liệu giao dịch đến third-party services (Discord, Slack, etc.)
@@ -55,6 +75,16 @@ và project này tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 💅 Changed
 
+#### Native NotificationListener.kt
+- Thêm logic lọc quảng cáo trực tiếp trong native code
+- Thêm khả năng đọc webhook config từ file
+- Thêm HTTP client để gửi webhook từ background
+
+#### Notification Processing Flow
+- AI detection chạy trước rule-based nếu có API key
+- Log chi tiết hơn về quá trình lọc quảng cáo
+- Cải thiện hiệu suất với confidence threshold
+
 #### Settings Screen Redesign
 - **AI Section**: Mới thêm section "Trí tuệ nhân tạo" với cấu hình Gemini
 - **Webhook Section**: Mới thêm section quản lý webhooks
@@ -75,9 +105,26 @@ và project này tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🛠️ Technical
 
-#### New Services
+#### New Services & Functions
 - `src/services/geminiService.ts` - Gemini AI service
 - `src/services/webhookService.ts` - Webhook management service
+- `geminiService.detectNotificationType()` - AI notification classification
+- `notificationParser.isAdvertisementNotification()` - Rule-based ad detection
+- `webhookService.syncToNative()` - Sync webhook config to native
+- `NotificationListener.queueWebhookForRetry()` - Queue failed webhooks
+- `NotificationListener.processWebhookQueue()` - Process queued webhooks on retry
+
+#### Updated Files
+- `src/services/geminiService.ts` - Thêm hàm detectNotificationType
+- `src/services/notificationService.ts` - Tích hợp AI ad detection
+- `src/services/webhookService.ts` - Native sync và new event type
+- `src/utils/notificationParser.ts` - Advertisement keywords và detection
+- `android/.../NotificationListener.kt` - Background webhook, ad filtering, và retry queue
+
+#### Constants Added
+- `ADVERTISEMENT_KEYWORDS` - 30+ từ khóa quảng cáo tiếng Việt
+- `TRANSACTION_PRIORITY_KEYWORDS` - Từ khóa giao dịch ưu tiên
+- `notification.received` - New webhook event type
 
 #### Store Updates
 - `settingsStore.ts`:
@@ -92,6 +139,8 @@ và project này tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 Fixed
 - Fixed lint error with Promise<void> type in notificationParser.ts
 - Removed duplicate month filter state management
+- Duplicate `settings` variable declaration in processNotification
+- Webhook not triggering when app is closed
 
 ---
 
