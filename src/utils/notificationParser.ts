@@ -44,6 +44,52 @@ const TIME_PATTERNS = [
   /(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2})/i,
 ];
 
+// Advertisement/Promotional notification keywords to filter out
+const ADVERTISEMENT_KEYWORDS = [
+  // Vietnamese promotional keywords
+  'khuyến mãi', 'khuyen mai', 'ưu đãi', 'uu dai',
+  'giảm giá', 'giam gia', 'sale', 'promotion',
+  'miễn phí', 'mien phi', 'free', 'không phí', 'khong phi',
+  'hoàn tiền', 'hoan tien', 'cashback',
+  'tặng', 'tang', 'quà tặng', 'qua tang',
+  'đặc quyền', 'dac quyen', 'privilege',
+  'thẻ tín dụng', 'the tin dung', 'credit card',
+  'đăng ký', 'dang ky', 'register', 'sign up',
+  'mở thẻ', 'mo the', 'apply card',
+  'flash sale', 'hot deal', 'deal sốc', 'deal soc',
+  'voucher', 'coupon', 'mã giảm', 'ma giam',
+  'tận hưởng', 'tan huong', 'trải nghiệm', 'trai nghiem',
+  'chương trình', 'chuong trinh', 'program',
+  'sự kiện', 'su kien', 'event',
+  'thả ga', 'tha ga', 'không lo', 'khong lo',
+  'du lịch', 'du lich', 'travel',
+  'mua sắm', 'mua sam',
+  'điểm thưởng', 'diem thuong', 'reward points',
+  'tích điểm', 'tich diem', 'earn points',
+  'JCB', 'Visa Platinum', 'Mastercard Gold',
+  'liên kết', 'lien ket', 'link',
+  'kích hoạt', 'kich hoat', 'activate',
+  '0%', '0 đồng', '0đ', '0 dong',
+  'trúng thưởng', 'trung thuong', 'win',
+  'quay số', 'quay so', 'lucky draw',
+  'nâng cấp', 'nang cap', 'upgrade',
+  'vay', 'loan', 'tín dụng', 'tin dung',
+  'gói dịch vụ', 'goi dich vu', 'service package',
+];
+
+// Keywords that indicate it's NOT an ad even if other ad keywords are present
+const TRANSACTION_PRIORITY_KEYWORDS = [
+  'số dư', 'so du', 'balance',
+  'giao dịch thành công', 'giao dich thanh cong',
+  'biến động số dư', 'bien dong so du',
+  'chuyển khoản thành công', 'chuyen khoan thanh cong',
+  'thanh toán thành công', 'thanh toan thanh cong',
+  'đã nhận', 'da nhan', 'received',
+  'đã chuyển', 'da chuyen', 'transferred',
+  'gd:', 'stk:', 'tk:',
+  'ma gd', 'mã gd',
+];
+
 // Merchant category mapping
 const MERCHANT_CATEGORIES: Record<string, TransactionCategory> = {
   // Food & Dining
@@ -248,10 +294,64 @@ const detectBank = (appPackage: string): BankCode | undefined => {
 };
 
 /**
+ * Check if notification is an advertisement/promotional message
+ */
+export const isAdvertisementNotification = (notification: BankNotification): boolean => {
+  const text = `${notification.title} ${notification.text}`.toLowerCase();
+  
+  // First check if it has priority transaction keywords
+  // If it has transaction keywords, it's likely a real transaction even if it mentions promotions
+  const hasTransactionKeywords = TRANSACTION_PRIORITY_KEYWORDS.some(keyword => 
+    text.includes(keyword.toLowerCase())
+  );
+  
+  if (hasTransactionKeywords) {
+    return false; // Not an ad, it's a real transaction notification
+  }
+  
+  // Count how many advertisement keywords are present
+  const adKeywordCount = ADVERTISEMENT_KEYWORDS.filter(keyword => 
+    text.includes(keyword.toLowerCase())
+  ).length;
+  
+  // If 2 or more ad keywords found, it's likely an advertisement
+  if (adKeywordCount >= 2) {
+    console.log(`[CashTrack] Advertisement detected (${adKeywordCount} keywords):`, text.substring(0, 100));
+    return true;
+  }
+  
+  // Check for common promotional patterns
+  const promotionalPatterns = [
+    /ưu đãi.*%/i,
+    /giảm.*%/i,
+    /miễn phí.*khi/i,
+    /tặng.*khi/i,
+    /đăng ký.*để/i,
+    /mở thẻ.*nhận/i,
+    /hoàn tiền.*%/i,
+    /0%.*lãi/i,
+    /không.*phí.*giao dịch/i,
+  ];
+  
+  if (promotionalPatterns.some(pattern => pattern.test(text))) {
+    console.log('[CashTrack] Advertisement detected (pattern match):', text.substring(0, 100));
+    return true;
+  }
+  
+  return false;
+};
+
+/**
  * Check if notification is a banking/transaction notification
  */
 export const isBankingNotification = (notification: BankNotification): boolean => {
   const text = `${notification.title} ${notification.text}`.toLowerCase();
+  
+  // First, filter out advertisements
+  if (isAdvertisementNotification(notification)) {
+    console.log('[CashTrack] Filtered out advertisement notification');
+    return false;
+  }
   
   // Check for amount pattern
   if (!AMOUNT_PATTERNS.some(pattern => pattern.test(notification.text))) {
@@ -262,7 +362,8 @@ export const isBankingNotification = (notification: BankNotification): boolean =
   const bankingKeywords = [
     'vnd', 'vnđ', 'giao dịch', 'gd:', 'số dư', 'thanh toán',
     'chuyển khoản', 'nhận tiền', 'rút tiền', 'nạp tiền',
-    'biến động số dư', 'transaction', 'balance'
+    'biến động số dư', 'transaction', 'balance',
+    'stk', 'tk ', 'tài khoản', 'tai khoan', 'account'
   ];
   
   return bankingKeywords.some(keyword => text.includes(keyword));

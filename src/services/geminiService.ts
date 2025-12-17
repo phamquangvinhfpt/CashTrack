@@ -311,6 +311,62 @@ Trả về CHÍNH XÁC định dạng JSON (không markdown):
       insights: [`Tổng ${incomeTransactions.length} khoản thu nhập từ ${Object.keys(sourceMap).length} nguồn`],
     };
   }
+
+  /**
+   * Detect if a notification is a real transaction or advertisement
+   * Returns the type and confidence level
+   */
+  async detectNotificationType(
+    notificationText: string,
+    appPackage: string
+  ): Promise<{
+    type: 'transaction' | 'advertisement' | 'unknown';
+    confidence: number;
+    reason: string;
+    extractedAmount?: number;
+    transactionType?: 'income' | 'expense';
+  }> {
+    const prompt = `
+Bạn là AI phân tích thông báo ngân hàng Việt Nam. Xác định xem thông báo sau là GIAO DỊCH THỰC hay QUẢNG CÁO.
+
+Thông báo từ app: ${appPackage}
+Nội dung: "${notificationText}"
+
+HƯỚNG DẪN PHÂN LOẠI:
+- GIAO DỊCH THỰC: Có số tiền cụ thể, số dư tài khoản, mã giao dịch, thông báo chuyển/nhận tiền thành công
+- QUẢNG CÁO: Khuyến mãi, ưu đãi, giảm giá, mở thẻ, đăng ký dịch vụ, giới thiệu sản phẩm, chương trình marketing
+
+Trả về CHÍNH XÁC JSON (không markdown):
+{
+  "type": "<transaction|advertisement|unknown>",
+  "confidence": <0.0-1.0>,
+  "reason": "<giải thích ngắn gọn>",
+  "extractedAmount": <số tiền nếu là giao dịch, null nếu không có>,
+  "transactionType": "<income|expense nếu là giao dịch, null nếu không phải>"
+}
+`;
+
+    try {
+      const response = await this.callGemini(prompt);
+      const result = this.parseJsonResponse<{
+        type: 'transaction' | 'advertisement' | 'unknown';
+        confidence: number;
+        reason: string;
+        extractedAmount?: number;
+        transactionType?: 'income' | 'expense';
+      }>(response);
+      
+      console.log('[Gemini] Notification type detection:', result);
+      return result;
+    } catch (error) {
+      console.error('[Gemini] Notification type detection failed:', error);
+      return {
+        type: 'unknown',
+        confidence: 0,
+        reason: 'AI detection failed',
+      };
+    }
+  }
 }
 
 export const geminiService = new GeminiService();

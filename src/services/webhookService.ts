@@ -1,6 +1,10 @@
 // Webhook Service for sending transaction data to third-party services
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform, NativeModules } from 'react-native';
 import { Transaction } from '../types';
+
+// Native SharedPreferences key (must match Kotlin code)
+const NATIVE_WEBHOOK_PREFS = 'CashTrackWebhooks';
 
 export interface WebhookConfig {
   id: string;
@@ -23,10 +27,11 @@ export type WebhookEvent =
   | 'budget.warning'
   | 'daily.summary'
   | 'weekly.summary'
-  | 'monthly.summary';
+  | 'monthly.summary'
+  | 'notification.received'; // New event for background notifications
 
 export interface WebhookPayload {
-  event: WebhookEvent;
+  event: WebhookEvent | string;
   timestamp: string;
   data: any;
 }
@@ -57,6 +62,10 @@ class WebhookService {
         }));
       }
       this.isLoaded = true;
+      
+      // Sync to native SharedPreferences for background webhook sending
+      await this.syncToNative();
+      
       return this.webhooks;
     } catch (error) {
       console.error('Failed to load webhooks:', error);
@@ -67,8 +76,48 @@ class WebhookService {
   private async saveWebhooks(): Promise<void> {
     try {
       await AsyncStorage.setItem(WEBHOOKS_STORAGE_KEY, JSON.stringify(this.webhooks));
+      
+      // Sync to native SharedPreferences for background webhook sending
+      await this.syncToNative();
     } catch (error) {
       console.error('Failed to save webhooks:', error);
+    }
+  }
+
+  /**
+   * Sync webhooks to native Android SharedPreferences
+   * This allows the NotificationListener service to send webhooks in the background
+   */
+  private async syncToNative(): Promise<void> {
+    if (Platform.OS !== 'android') return;
+
+    try {
+      // Format webhooks for native consumption (simplified structure)
+      const nativeWebhooks = this.webhooks.map(w => ({
+        id: w.id,
+        url: w.url,
+        enabled: w.enabled,
+        secret: w.secret || '',
+        events: w.events,
+      }));
+
+      const webhookData = JSON.stringify(nativeWebhooks);
+      
+      // expo-file-system documentDirectory = file:///data/user/0/com.cashtrack.app/files/
+      // This is the same as Kotlin's context.filesDir
+      const FileSystem = require('expo-file-system');
+      if (FileSystem && FileSystem.documentDirectory) {
+        // Save to files directory (native code reads from here)
+        const filePath = `${FileSystem.documentDirectory}webhooks_config.json`;
+        await FileSystem.writeAsStringAsync(filePath, webhookData);
+        console.log('[CashTrack] Webhooks synced to:', filePath);
+      }
+
+      // Also store in AsyncStorage as backup
+      await AsyncStorage.setItem('@native_webhooks', webhookData);
+      
+    } catch (error) {
+      console.log('[CashTrack] Failed to sync webhooks to native:', error);
     }
   }
 

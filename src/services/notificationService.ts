@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { 
   isBankingNotification, 
+  isAdvertisementNotification,
   parseNotification, 
   getCategoryFromTransaction 
 } from '../utils/notificationParser';
@@ -81,14 +82,59 @@ export const processNotification = async (notification: BankNotification): Promi
     text: notification.text?.substring(0, 100),
   });
   
-  // Check if it's a banking notification
+  const settings = useSettingsStore.getState();
+  const fullText = `${notification.title} ${notification.text}`;
+  
+  // If Gemini AI is configured, use it to detect notification type first
+  if (settings.useAICategorizaton && settings.geminiApiKey) {
+    console.log('[CashTrack] Using AI to detect notification type...');
+    try {
+      const { geminiService } = require('./geminiService');
+      
+      // Configure Gemini if not already
+      if (!geminiService.isConfigured()) {
+        geminiService.configure({ apiKey: settings.geminiApiKey });
+      }
+      
+      const detection = await geminiService.detectNotificationType(fullText, notification.app);
+      
+      console.log('[CashTrack] AI detection result:', detection);
+      
+      // If AI is confident it's an advertisement, skip it
+      if (detection.type === 'advertisement' && detection.confidence >= 0.7) {
+        console.log(`[CashTrack] AI detected advertisement (${(detection.confidence * 100).toFixed(0)}% confidence): ${detection.reason}`);
+        return null;
+      }
+      
+      // If AI is confident it's a transaction, proceed
+      if (detection.type === 'transaction' && detection.confidence >= 0.7) {
+        console.log(`[CashTrack] AI confirmed transaction (${(detection.confidence * 100).toFixed(0)}% confidence): ${detection.reason}`);
+        // Continue to parsing below
+      }
+      
+      // If unknown or low confidence, fall back to rule-based detection
+      if (detection.type === 'unknown' || detection.confidence < 0.7) {
+        console.log('[CashTrack] AI uncertain, falling back to rule-based detection');
+        // Fall through to rule-based check below
+      }
+    } catch (error) {
+      console.error('[CashTrack] AI detection failed, using rule-based fallback:', error);
+      // Continue with rule-based detection
+    }
+  }
+  
+  // Rule-based check: Check if it's a banking notification (also filters out advertisements)
   if (!isBankingNotification(notification)) {
-    console.log('[CashTrack] Not a banking notification, skipping');
+    // Check specifically if it was filtered as an advertisement
+    if (isAdvertisementNotification(notification)) {
+      console.log('[CashTrack] Filtered advertisement/promotional notification, skipping');
+    } else {
+      console.log('[CashTrack] Not a banking notification, skipping');
+    }
     return null;
   }
   
   // Check if this app is in selected bank apps
-  const settings = useSettingsStore.getState();
   if (settings.selectedBankApps.length > 0 && !settings.selectedBankApps.includes(notification.app)) {
     console.log('[CashTrack] App not in selected banks, skipping');
     return null;
