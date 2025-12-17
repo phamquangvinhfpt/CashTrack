@@ -216,8 +216,8 @@ export const TransactionsScreen: React.FC = () => {
             fontWeight: '600',
         },
         listContainer: {
-            flex: 1,
             paddingHorizontal: spacing[4],
+            paddingBottom: spacing[24], // Extra padding for bottom navigation
         },
         sectionHeader: {
             flexDirection: 'row',
