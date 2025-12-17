@@ -103,21 +103,48 @@ class WebhookService {
 
       const webhookData = JSON.stringify(nativeWebhooks);
       
-      // expo-file-system documentDirectory = file:///data/user/0/com.cashtrack.app/files/
-      // This is the same as Kotlin's context.filesDir
-      const FileSystem = require('expo-file-system');
-      if (FileSystem && FileSystem.documentDirectory) {
-        // Save to files directory (native code reads from here)
-        const filePath = `${FileSystem.documentDirectory}webhooks_config.json`;
-        await FileSystem.writeAsStringAsync(filePath, webhookData);
-        console.log('[CashTrack] Webhooks synced to:', filePath);
+      // Method 1: Use native module to write directly to SharedPreferences (MOST RELIABLE)
+      try {
+        const { WebhookConfigModule } = NativeModules;
+        if (WebhookConfigModule && WebhookConfigModule.saveWebhooks) {
+          await WebhookConfigModule.saveWebhooks(webhookData);
+          console.log('[CashTrack] Webhooks synced to native SharedPreferences via module');
+        }
+      } catch (nativeError) {
+        console.log('[CashTrack] Native module not available, using file fallback');
+      }
+      
+      // Method 2: Also save to file as fallback
+      try {
+        const FileSystem = require('expo-file-system');
+        if (FileSystem && FileSystem.documentDirectory) {
+          const filePath = `${FileSystem.documentDirectory}webhooks_config.json`;
+          await FileSystem.writeAsStringAsync(filePath, webhookData);
+          console.log('[CashTrack] Webhooks also saved to file:', filePath);
+        }
+      } catch (fileError) {
+        console.log('[CashTrack] File save failed:', fileError);
       }
 
-      // Also store in AsyncStorage as backup
+      // Method 3: Store in AsyncStorage as backup
       await AsyncStorage.setItem('@native_webhooks', webhookData);
       
     } catch (error) {
       console.log('[CashTrack] Failed to sync webhooks to native:', error);
+    }
+  }
+
+  /**
+   * Force sync webhooks to native (public method)
+   * Call this to ensure native code has the latest webhook config
+   */
+  async forceSyncToNative(): Promise<boolean> {
+    try {
+      await this.syncToNative();
+      return true;
+    } catch (error) {
+      console.error('[CashTrack] Force sync failed:', error);
+      return false;
     }
   }
 

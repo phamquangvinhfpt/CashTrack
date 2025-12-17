@@ -8,6 +8,7 @@ import { AppNavigator } from './src/navigation';
 import { startNotificationListener, stopNotificationListener } from './src/services/nativeNotificationBridge';
 import { showOnboardingPermissionPrompt, showNotificationPermissionDialog } from './src/utils/permissionUtils';
 import { useSettingsStore } from './src/store';
+import { webhookService } from './src/services/webhookService';
 
 const PERMISSION_PROMPT_SHOWN_KEY = 'cashtrack_permission_prompt_shown';
 
@@ -19,6 +20,12 @@ export default function App() {
       try {
         // Start listening for notifications from native service
         startNotificationListener();
+
+        // Load and sync webhooks to native (important for background webhook sending)
+        if (Platform.OS === 'android') {
+          await webhookService.loadWebhooks();
+          console.log('[CashTrack] Webhooks loaded and synced to native');
+        }
 
         // Check if we should show permission prompt (only on Android)
         if (Platform.OS === 'android') {

@@ -32,6 +32,7 @@ import { spacing, textStyles, colors, borderRadius, layout } from '../../theme';
 
 // Available webhook events
 const WEBHOOK_EVENTS: { id: WebhookEvent; label: string }[] = [
+    { id: 'notification.received', label: '🔔 Thông báo mới (ngầm)' },
     { id: 'transaction.created', label: 'Giao dịch mới' },
     { id: 'transaction.updated', label: 'Cập nhật giao dịch' },
     { id: 'transaction.deleted', label: 'Xóa giao dịch' },
