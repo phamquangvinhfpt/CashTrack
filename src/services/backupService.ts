@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import XLSX from 'xlsx';
@@ -18,8 +18,7 @@ export const backupService = {
       const fileUri = (FileSystem.documentDirectory || '') + filename;
 
       await FileSystem.writeAsStringAsync(fileUri, jsonString, {
-        // @ts-ignore
-        encoding: FileSystem.EncodingType.UTF8,
+        encoding: 'utf8',
       });
 
       if (await Sharing.isAvailableAsync()) {
@@ -68,8 +67,7 @@ export const backupService = {
       const fileUri = (FileSystem.documentDirectory || '') + filename;
 
       await FileSystem.writeAsStringAsync(fileUri, base64, {
-        // @ts-ignore
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       if (await Sharing.isAvailableAsync()) {
@@ -121,8 +119,7 @@ export const backupService = {
         }
       } else if (fileExt === 'xlsx' || fileExt === 'xls') {
         const content = await FileSystem.readAsStringAsync(fileUri, {
-          // @ts-ignore
-          encoding: FileSystem.EncodingType.Base64,
+          encoding: 'base64',
         });
         const workbook = XLSX.read(content, { type: 'base64' });
         const sheetName = workbook.SheetNames[0]; // Assume first sheet
