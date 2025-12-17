@@ -221,6 +221,18 @@ const processNotification = async (notification: BankNotification): Promise<Pars
 
   // Add to store
   const store = useTransactionStore.getState();
+
+  // Check for duplicates in store
+  const isDuplicate = store.transactions.some(t => 
+    t.source === 'notification' && 
+    t.rawNotification === parsed.rawText
+  );
+
+  if (isDuplicate) {
+    console.log('[CashTrack] Duplicate transaction found in store (native bridge), skipping');
+    return parsed;
+  }
+
   store.addTransaction({
     amount: parsed.amount,
     type: parsed.type,

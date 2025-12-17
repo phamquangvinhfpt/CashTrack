@@ -17,7 +17,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useTransactionStore } from '../../store';
 import { Button } from '../../components/common/Button';
 import { TransactionCategory, CATEGORIES, getCategoryById } from '../../types';
-import { formatCurrency, parseCurrency } from '../../utils';
+import { formatCurrency, parseCurrency, formatNumber } from '../../utils';
 import { spacing, textStyles, colors, borderRadius, layout } from '../../theme';
 
 interface AddTransactionScreenProps {
@@ -37,6 +37,18 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     const [category, setCategory] = useState<TransactionCategory>('other');
     const [description, setDescription] = useState('');
     const [merchant, setMerchant] = useState('');
+
+    const handleAmountChange = (text: string) => {
+        const cleanNumber = text.replace(/[^0-9]/g, '');
+
+        if (!cleanNumber) {
+            setAmount('');
+            return;
+        }
+
+        const num = parseInt(cleanNumber, 10);
+        setAmount(formatNumber(num));
+    };
 
     const styles = StyleSheet.create({
         container: {
@@ -289,7 +301,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                             placeholder="0"
                             placeholderTextColor={theme.text.tertiary}
                             value={amount}
-                            onChangeText={setAmount}
+                            onChangeText={handleAmountChange}
                             keyboardType="numeric"
                             textAlign="center"
                         />

@@ -43,7 +43,8 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
     if (!transaction) return null;
 
-    const categoryInfo = getCategoryById(transaction.category);
+    const currentCategory = selectedCategory || transaction.category;
+    const categoryInfo = getCategoryById(currentCategory);
 
     const handleCategoryChange = (newCategory: TransactionCategory) => {
         setSelectedCategory(newCategory);
@@ -332,7 +333,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                                 colors={categoryInfo.gradient}
                                 style={styles.categoryIcon}
                             >
-                                <Text style={{ fontSize: 16 }}>{getCategoryEmoji(transaction.category)}</Text>
+                                <Text style={{ fontSize: 16 }}>{getCategoryEmoji(currentCategory)}</Text>
                             </LinearGradient>
                             <Text style={styles.categoryText}>{categoryInfo.labelVi}</Text>
                             <Icon

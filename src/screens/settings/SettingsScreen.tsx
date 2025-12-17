@@ -12,7 +12,8 @@ import {
     TextInput,
     FlatList,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../theme/ThemeContext';
@@ -20,14 +21,13 @@ import { useSettingsStore, useTransactionStore } from '../../store';
 import {
     checkNotificationPermission,
     requestNotificationPermission,
-    getSupportedBanks
 } from '../../services/notificationService';
 import { webhookService, WebhookConfig, WebhookEvent } from '../../services/webhookService';
+import { backupService } from '../../services/backupService';
 import { geminiService } from '../../services/geminiService';
 import { openNotificationListenerSettings } from '../../utils/permissionUtils';
 import { BANKS, BankInfo } from '../../types';
 import { formatCurrency } from '../../utils';
-import { Button } from '../../components/common/Button';
 import { spacing, textStyles, colors, borderRadius, layout } from '../../theme';
 
 // Available webhook events
@@ -44,6 +44,7 @@ const WEBHOOK_EVENTS: { id: WebhookEvent; label: string }[] = [
 
 export const SettingsScreen: React.FC = () => {
     const { theme, isDark, setThemeMode, themeMode, toggleTheme } = useTheme();
+    const insets = useSafeAreaInsets();
     const [isCheckingPermission, setIsCheckingPermission] = useState(false);
 
     // Modal states
@@ -546,6 +547,48 @@ export const SettingsScreen: React.FC = () => {
         }
     };
 
+    // Backup handlers
+    const handleExportJSON = async () => {
+        try {
+            await backupService.exportToJSON();
+        } catch (error) {
+            Alert.alert('Lỗi', 'Không thể xuất file JSON');
+        }
+    };
+
+    const handleExportExcel = async () => {
+        try {
+            await backupService.exportToExcel();
+        } catch (error) {
+            Alert.alert('Lỗi', 'Không thể xuất file Excel: ' + (error as Error).message);
+        }
+    };
+
+    const handleImportBackup = async () => {
+        Alert.alert(
+            'Nhập dữ liệu',
+            'Dữ liệu nhập vào sẽ được thêm vào dữ liệu hiện có. Giao dịch trùng lặp có thể được cập nhật. Bạn có muốn tiếp tục?',
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Tiếp tục',
+                    onPress: async () => {
+                        try {
+                            const result = await backupService.importBackup();
+                            if (result.success && result.count) {
+                                Alert.alert('Thành công', `Đã nhập ${result.count} giao dịch`);
+                            } else if (result.message && result.message !== 'Cancelled') {
+                                Alert.alert('Thông báo', result.message);
+                            }
+                        } catch (error) {
+                            Alert.alert('Lỗi', 'Không thể nhập dữ liệu: ' + (error as Error).message);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <StatusBar
@@ -893,6 +936,69 @@ export const SettingsScreen: React.FC = () => {
                     </View>
                 </View>
 
+                {/* Backup & Restore */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Sao lưu & Khôi phục</Text>
+                    <View style={styles.card}>
+                        <TouchableOpacity
+                            style={styles.settingItem}
+                            onPress={handleExportExcel}
+                        >
+                            <View style={styles.settingLeft}>
+                                <LinearGradient
+                                    colors={['#10b981', '#059669']}
+                                    style={styles.settingIcon}
+                                >
+                                    <Icon name="table-view" size={20} color="#fff" />
+                                </LinearGradient>
+                                <View style={styles.settingInfo}>
+                                    <Text style={styles.settingTitle}>Xuất ra Excel</Text>
+                                    <Text style={styles.settingDescription}>
+                                        Lưu giao dịch dưới dạng file Excel
+                                    </Text>
+                                </View>
+                            </View>
+                            <Icon name="file-download" size={20} color={theme.text.tertiary} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.settingItem}
+                            onPress={handleExportJSON}
+                        >
+                            <View style={styles.settingLeft}>
+                                <View style={[styles.settingIcon, { backgroundColor: theme.surface.secondary }]}>
+                                    <Icon name="code" size={20} color={theme.text.secondary} />
+                                </View>
+                                <View style={styles.settingInfo}>
+                                    <Text style={styles.settingTitle}>Xuất backup JSON</Text>
+                                    <Text style={styles.settingDescription}>
+                                        Tạo file backup đầy đủ
+                                    </Text>
+                                </View>
+                            </View>
+                            <Icon name="file-download" size={20} color={theme.text.tertiary} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.settingItem, styles.settingItemLast]}
+                            onPress={handleImportBackup}
+                        >
+                            <View style={styles.settingLeft}>
+                                <View style={[styles.settingIcon, { backgroundColor: theme.surface.secondary }]}>
+                                    <Icon name="restore" size={20} color={theme.text.secondary} />
+                                </View>
+                                <View style={styles.settingInfo}>
+                                    <Text style={styles.settingTitle}>Nhập dữ liệu</Text>
+                                    <Text style={styles.settingDescription}>
+                                        Khôi phục từ file Excel hoặc JSON
+                                    </Text>
+                                </View>
+                            </View>
+                            <Icon name="file-upload" size={20} color={theme.text.tertiary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
                 {/* Danger Zone */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Dữ liệu</Text>
@@ -930,7 +1036,9 @@ export const SettingsScreen: React.FC = () => {
                                 </View>
                                 <View style={styles.settingInfo}>
                                     <Text style={styles.settingTitle}>Phiên bản</Text>
-                                    <Text style={styles.settingDescription}>CashTrack v1.1.0</Text>
+                                    <Text style={styles.settingDescription}>
+                                        CashTrack v{Constants.expoConfig?.version || '1.0.0'}
+                                    </Text>
                                 </View>
                             </View>
                         </View>
@@ -1082,7 +1190,7 @@ export const SettingsScreen: React.FC = () => {
 
                         <ScrollView
                             showsVerticalScrollIndicator={false}
-                            contentContainerStyle={{ paddingBottom: spacing[8] }}
+                            contentContainerStyle={{ paddingBottom: spacing[8] + insets.bottom }}
                         >
                             {/* Header */}
                             <View style={{

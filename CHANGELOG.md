@@ -7,7 +7,7 @@ và project này tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.0] - 2024-12-16
+## [1.2.0] - 2025-12-17
 
 ### 🚀 Added
 
@@ -41,6 +41,17 @@ và project này tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Flexible Budget Setting**: Đặt ngân sách hàng tháng tùy chỉnh
 - **Preset Values**: Quick preset (5M, 10M, 15M, 20M, 30M, 50M VND)
 - **Budget Edit Modal**: UI đẹp để chỉnh sửa ngân sách
+
+#### Backup & Restore System
+- **Export Data**: Xuất dữ liệu giao dịch ra file Excel (.xlsx) chuẩn định dạng hoặc JSON backup
+- **Import Functions**: Khôi phục dữ liệu từ file (JSON/Excel) vào ứng dụng
+- **Smart Merging**: Tự động phát hiện giao dịch trùng lặp khi import notify hoặc backup
+- **Backup UI**: Giao diện quản lý sao lưu trong Settings
+
+#### Other Improvements
+- **Dependencies**: Thêm các thư viện xử lý file (`xlsx`, `expo-file-system`, etc.)
+- **AI Integration**: Kết nối trực tiếp Notification Service với Gemini Service để phân loại realtime
+- **Settings**: Hiển thị dynamic version từ `app.json`
 
 ### 💅 Changed
 

@@ -40,6 +40,17 @@ CashTrack là ứng dụng React Native (Expo) giúp bạn tự động theo dõ
 - 📋 Tổng kết ngày/tuần/tháng tự động
 - 🔐 HMAC signature cho bảo mật
 
+### Backup & Restore System (NEW!)
+- **Export Data**: Xuất dữ liệu giao dịch ra file Excel (.xlsx) chuẩn định dạng hoặc JSON backup
+- **Import Functions**: Khôi phục dữ liệu từ file (JSON/Excel) vào ứng dụng
+- **Smart Merging**: Tự động phát hiện giao dịch trùng lặp khi import notify hoặc backup
+- **Backup UI**: Giao diện quản lý sao lưu trong Settings
+
+### Other Improvements (NEW!)
+- **Dependencies**: Thêm các thư viện xử lý file (`xlsx`, `expo-file-system`, etc.)
+- **AI Integration**: Kết nối trực tiếp Notification Service với Gemini Service để phân loại realtime
+- **Settings**: Hiển thị dynamic version từ `app.json`
+
 ---
 
 

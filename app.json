@@ -2,7 +2,7 @@
   "expo": {
     "name": "CashTrack - Quản Lý Chi Tiêu",
     "slug": "cashtrack",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

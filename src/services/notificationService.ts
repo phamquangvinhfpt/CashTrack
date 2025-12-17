@@ -104,11 +104,59 @@ export const processNotification = async (notification: BankNotification): Promi
   console.log('[CashTrack] Parsed transaction:', parsed);
   
   // Get category
-  const category = getCategoryFromTransaction(parsed);
+  let category = getCategoryFromTransaction(parsed);
+  
+  // Try AI categorization if enabled and rule-based result is 'other' or to refine metadata
+  if (settings.useAICategorizaton && settings.geminiApiKey) {
+    console.log('[CashTrack] AI Categorization enabled, calling Gemini...');
+    try {
+      // Import geminiService dynamically to avoid circular dependencies if any
+      const { geminiService } = require('./geminiService');
+      
+      const analysis = await geminiService.analyzeTransaction(
+        parsed.rawText, 
+        parsed.amount, 
+        parsed.type
+      );
+      
+      console.log('[CashTrack] Gemini analysis result:', analysis);
+      
+      if (analysis.suggestedCategory && analysis.suggestedCategory !== 'other') {
+        category = analysis.suggestedCategory;
+      }
+      
+      // Enhance merchant info if AI found it and parser couldn't
+      if (analysis.merchant && !parsed.merchant) {
+        parsed.merchant = analysis.merchant;
+      }
+      
+      // Enhance description if AI generated a better one
+      if (analysis.description && analysis.description.length > parsed.description!.length) { // fixed: description is optional on parsed
+        parsed.description = analysis.description;
+      }
+      
+    } catch (error) {
+       console.error('[CashTrack] AI analysis failed:', error);
+       // Fallback to rule-based category, no action needed
+    }
+  }
   
   // Add to store
   const store = useTransactionStore.getState();
-  store.addTransaction({
+  
+  // Check for duplicates in store to prevent re-importing the same notification
+  // even if the app was restarted or cache cleared
+  const isDuplicate = store.transactions.some(t => 
+    t.source === 'notification' && 
+    t.rawNotification === parsed.rawText
+  );
+  
+  if (isDuplicate) {
+    console.log('[CashTrack] Duplicate transaction found in store, skipping:', parsed.description);
+    return parsed; // Return parsed to indicate it was "handled" (as a duplicate)
+  }
+
+  const newTransaction = store.addTransaction({
     amount: parsed.amount,
     type: parsed.type,
     category,

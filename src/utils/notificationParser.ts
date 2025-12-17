@@ -48,6 +48,7 @@ const TIME_PATTERNS = [
 const MERCHANT_CATEGORIES: Record<string, TransactionCategory> = {
   // Food & Dining
   'circle k': 'food',
+  'GS25': 'food',
   'vinmart': 'food',
   'winmart': 'food',
   'baemin': 'food',
